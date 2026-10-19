@@ -264,6 +264,11 @@
     "seedling": "شتلة",
     "tree": "شجرة",
     "forest": "غابة",
-    "earth": "حامي الأرض"
+    "earth": "حامي الأرض",
+    "shareTitle": "مشاركة شارتي",
+    "shareTwitter": "حصلت على شارة {tier} في Stellar GreenPay! 🌱\n\nتبرعت بـ {amount} XLM للمشاريع المناخية. انضم إلي لصنع الفرق! 🌍",
+    "shareFacebook": "مشاركة على فيسبوك",
+    "shareLinkedIn": "مشاركة على لينكد إن",
+    "shareCopy": "نسخ الرابط"
   }
 }

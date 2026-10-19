@@ -30,8 +30,9 @@ import {
 } from "@/lib/api";
 import { useI18n } from "@/lib/i18n";
 import { formatXLM, formatCO2, progressPercent, timeAgo, statusClass, statusLabel, CATEGORY_ICONS, copyToClipboard, shortenAddress } from "@/utils/format";
-import { accountUrl, fetchProjectDiscussion, type ProjectDiscussionMessage } from "@/lib/stellar";
+import { accountUrl, fetchProjectDiscussion, type ProjectDiscussionMessage, buildCreateMatchPledgeTransaction, submitSorobanTransaction } from "@/lib/stellar";
 import { markMonthlySubscriptionPaid } from "@/lib/monthlyGiving";
+import { connectWallet, signTransactionWithWallet, getConnectedPublicKey } from "@/lib/wallet";
 import type {
   ClimateProject,
   Donation,
@@ -102,6 +103,9 @@ export default function ProjectDetail({
   const [isFollowing, setIsFollowing] = useState(false);
   const [followCount, setFollowCount] = useState(0);
   const [followLoading, setFollowLoading] = useState(false);
+  const [matchPledgeForm, setMatchPledgeForm] = useState({ capXLM: "", deadlineLedger: "" });
+  const [matchPledgeState, setMatchPledgeState] = useState<"idle" | "submitting" | "success">("idle");
+  const [matchPledgeError, setMatchPledgeError] = useState<string | null>(null);
 
   // Stable per-particle randomness for the completion celebration animation.
   // A useState lazy initializer (unlike useMemo, which React may recompute
@@ -245,6 +249,54 @@ export default function ProjectDetail({
   };
 
   const incrementShare = () => setShareCount(prev => prev + 1);
+
+  const handleCreateMatchPledge = async () => {
+    if (!publicKey || !project) return;
+    try {
+      setMatchPledgeState("submitting");
+      setMatchPledgeError(null);
+
+      const cap = parseFloat(matchPledgeForm.capXLM);
+      const deadline = parseInt(matchPledgeForm.deadlineLedger, 10);
+
+      if (isNaN(cap) || cap <= 0) {
+        throw new Error("Cap must be a positive number");
+      }
+      if (isNaN(deadline) || deadline <= 0) {
+        throw new Error("Deadline ledger must be a positive number");
+      }
+
+      const tx = await buildCreateMatchPledgeTransaction({
+        contractId: process.env.NEXT_PUBLIC_CONTRACT_ID || "",
+        matcher: publicKey,
+        projectId: project.id,
+        capXLM: matchPledgeForm.capXLM,
+        deadlineLedger: deadline,
+      });
+
+      const signResult = await signTransactionWithWallet(tx.toXDR());
+      if (signResult.error || !signResult.signedXDR) {
+        throw new Error(signResult.error || "Failed to sign transaction");
+      }
+      const result = await submitSorobanTransaction(signResult.signedXDR);
+
+      setMatchPledgeState("success");
+      setMatchPledgeForm({ capXLM: "", deadlineLedger: "" });
+      setToasts((prev) => [
+        ...prev,
+        {
+          id: `match-${Date.now()}`,
+          title: "Match pledge created!",
+          description: `Your 2x match pledge up to ${formatXLM(cap.toString())} XLM is now active`,
+          createdAt: Date.now(),
+        },
+      ]);
+      await fetchProjectMatches(project.id).then(setMatches);
+    } catch (e: unknown) {
+      setMatchPledgeError((e as Error).message || "Failed to create match pledge");
+      setMatchPledgeState("idle");
+    }
+  };
 
   const handleTwitterShare = () => {
     if (!project) return;
@@ -1420,6 +1472,77 @@ export default function ProjectDetail({
                     : "Create Campaign"}
               </button>
             </form>
+          </div>
+
+          {/* Donation Matching Pledge */}
+          <div className="card bg-forest-50 border-forest-200">
+            <h2 className="font-display text-lg font-semibold text-forest-900 mb-2">
+              Start a Matching Pledge
+            </h2>
+            <p className="text-xs text-[#4f6f4f] dark:text-forest-400 font-body mb-4">
+              Pledge to match donations 2x up to a cap. This creates an on-chain match pledge that doubles donor impact.
+            </p>
+            {matches.length > 0 && (
+              <div className="mb-4 p-3 bg-emerald-50 border border-emerald-200 rounded-md">
+                <p className="text-xs text-emerald-700 font-body font-semibold">
+                  Active Match: {matches[0].matchedXLM || "0"} / {formatXLM(matches[0].capXLM)} XLM matched
+                </p>
+              </div>
+            )}
+            <form onSubmit={(e) => { e.preventDefault(); handleCreateMatchPledge(); }} className="space-y-3">
+              <div className="grid sm:grid-cols-2 gap-3">
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  step="0.0000001"
+                  placeholder="Match Cap (XLM)"
+                  value={matchPledgeForm.capXLM}
+                  onChange={(e) =>
+                    setMatchPledgeForm((prev) => ({
+                      ...prev,
+                      capXLM: e.target.value,
+                    }))
+                  }
+                  className="input-field"
+                />
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  placeholder="Deadline Ledger"
+                  value={matchPledgeForm.deadlineLedger}
+                  onChange={(e) =>
+                    setMatchPledgeForm((prev) => ({
+                      ...prev,
+                      deadlineLedger: e.target.value,
+                    }))
+                  }
+                  className="input-field"
+                />
+              </div>
+              {matchPledgeError && (
+                <p className="text-xs text-red-600 font-body">
+                  {matchPledgeError}
+                </p>
+              )}
+              <button
+                type="submit"
+                disabled={!publicKey || matchPledgeState === "submitting"}
+                className="btn-primary text-sm py-2 px-4 disabled:opacity-50"
+              >
+                {matchPledgeState === "submitting"
+                  ? "Creating..."
+                  : matchPledgeState === "success"
+                    ? "Pledge Created!"
+                    : "Create 2x Match Pledge"}
+              </button>
+            </form>
+            {!publicKey && (
+              <p className="text-xs text-[#4f6f4f] dark:text-forest-400 font-body mt-2">
+                Connect your wallet to create a match pledge.
+              </p>
+            )}
           </div>
 
           {/* Project updates */}

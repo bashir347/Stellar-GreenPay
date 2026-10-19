@@ -264,6 +264,11 @@
     "seedling": "Seedling",
     "tree": "Tree",
     "forest": "Forest",
-    "earth": "Earth Guardian"
+    "earth": "Earth Guardian",
+    "shareTitle": "Share my badge",
+    "shareTwitter": "I've earned the {tier} badge on Stellar GreenPay! 🌱\n\nI've donated {amount} XLM to climate projects. Join me in making a difference! 🌍",
+    "shareFacebook": "Share on Facebook",
+    "shareLinkedIn": "Share on LinkedIn",
+    "shareCopy": "Copy link"
   }
 }
