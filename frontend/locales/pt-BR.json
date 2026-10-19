@@ -260,6 +260,11 @@
     "seedling": "Plântula",
     "tree": "Árvore",
     "forest": "Floresta",
-    "earth": "Guardião da Terra"
+    "earth": "Guardião da Terra",
+    "shareTitle": "Compartilhar minha medalha",
+    "shareTwitter": "Ganhei a medalha {tier} no Stellar GreenPay! 🌱\n\nDoei {amount} XLM para projetos climáticos. Junte-se a mim para fazer a diferença! 🌍",
+    "shareFacebook": "Compartilhar no Facebook",
+    "shareLinkedIn": "Compartilhar no LinkedIn",
+    "shareCopy": "Copiar link"
   }
 }

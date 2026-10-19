@@ -264,6 +264,11 @@
     "seedling": "Plántula",
     "tree": "Árbol",
     "forest": "Bosque",
-    "earth": "Guardiana de la Tierra"
+    "earth": "Guardiana de la Tierra",
+    "shareTitle": "Compartir mi insignia",
+    "shareTwitter": "He ganado la insignia {tier} en Stellar GreenPay! 🌱\n\nHe donado {amount} XLM a proyectos climáticos. ¡Únete a mí para hacer la diferencia! 🌍",
+    "shareFacebook": "Compartir en Facebook",
+    "shareLinkedIn": "Compartir en LinkedIn",
+    "shareCopy": "Copiar enlace"
   }
 }

@@ -13,6 +13,8 @@ import { connectWallet, signTransactionWithWallet, getConnectedPublicKey } from 
 import { CONTRACT_ID, buildMintImpactNftTransaction, submitSorobanTransaction, explorerUrl } from "@/lib/stellar";
 import type { DonorProfile, Donation, BadgeTier } from "@/utils/types";
 import { formatAmount, formatDate as formatLocalizedDate, formatXLM } from "@/utils/format";
+import ShareButtons from "@/components/ShareButtons";
+import { useI18n } from "@/lib/i18n";
 
 // ── Badge helpers ─────────────────────────────────────────────────────────────
 
@@ -180,7 +182,8 @@ function ProfileSkeleton() {
 
 // ── Share button ──────────────────────────────────────────────────────────────
 
-function ShareButton({ url }: { url: string }) {
+function ShareButton({ url, profile }: { url: string; profile: DonorProfile | null }) {
+  const { t } = useI18n();
   const [copied, setCopied] = useState(false);
 
   const handleCopy = useCallback(async () => {
@@ -189,7 +192,6 @@ function ShareButton({ url }: { url: string }) {
       setCopied(true);
       setTimeout(() => setCopied(false), 2200);
     } catch {
-      // fallback for older browsers
       const el = document.createElement("textarea");
       el.value = url;
       document.body.appendChild(el);
@@ -201,22 +203,40 @@ function ShareButton({ url }: { url: string }) {
     }
   }, [url]);
 
+  const handleTwitter = useCallback(() => {
+    const displayName = profile?.displayName || profile?.publicKey?.slice(0, 6) + "…" + profile?.publicKey?.slice(-6);
+    const totalDonated = profile?.totalDonatedXLM || "0";
+    const tierOrder = ["seedling", "tree", "forest", "earth"];
+    let highestTier = "seedling";
+    let highestIdx = -1;
+    for (const b of profile?.badges || []) {
+      const idx = tierOrder.indexOf(b.tier);
+      if (idx > highestIdx) {
+        highestIdx = idx;
+        highestTier = b.tier;
+      }
+    }
+    const tierLabel = t(`badge.${highestTier}`);
+    const shareText = t("badge.shareTwitter", { tier: tierLabel, amount: totalDonated });
+    const text = encodeURIComponent(shareText);
+    window.open(`https://twitter.com/intent/tweet?text=${text}&url=${encodeURIComponent(url)}`, "_blank");
+  }, [url, profile, t]);
+
+  const handleFacebook = useCallback(() => {
+    window.open(`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(url)}`, "_blank");
+  }, [url]);
+
+  const handleLinkedIn = useCallback(() => {
+    window.open(`https://www.linkedin.com/sharing/share-offsite/?url=${encodeURIComponent(url)}`, "_blank");
+  }, [url]);
+
   return (
-    <button
-      onClick={handleCopy}
-      className="btn-secondary text-sm flex items-center gap-2"
-      aria-label="Copy profile URL to clipboard"
-    >
-      {copied ? (
-        <>
-          <span>✅</span> Copied!
-        </>
-      ) : (
-        <>
-          <span>🔗</span> Share my impact
-        </>
-      )}
-    </button>
+    <ShareButtons
+      onTwitter={handleTwitter}
+      onFacebook={handleFacebook}
+      onCopyLink={handleCopy}
+      copyState={copied ? "copied" : "idle"}
+    />
   );
 }
 
@@ -546,6 +566,10 @@ export default function DonorProfilePage() {
   const ogDescription = profile
     ? `${displayName} has donated ${formatXLM(profile.totalDonatedXLM)} to ${profile.projectsSupported} climate project${profile.projectsSupported !== 1 ? "s" : ""} on Stellar GreenPay.`
     : "View this donor's climate impact on Stellar GreenPay.";
+  
+  const ogImageUrl = profile
+    ? `${process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"}/api/og/badge?publicKey=${encodeURIComponent(profile.publicKey)}`
+    : undefined;
 
   // ── Render ───────────────────────────────────────────────────────────────
 
@@ -559,10 +583,12 @@ export default function DonorProfilePage() {
         <meta property="og:description" content={ogDescription} />
         <meta property="og:type" content="profile" />
         {profileUrl && <meta property="og:url" content={profileUrl} />}
+        {ogImageUrl && <meta property="og:image" content={ogImageUrl} />}
         {/* Twitter card */}
-        <meta name="twitter:card" content="summary" />
+        <meta name="twitter:card" content="summary_large_image" />
         <meta name="twitter:title" content={ogTitle} />
         <meta name="twitter:description" content={ogDescription} />
+        {ogImageUrl && <meta name="twitter:image" content={ogImageUrl} />}
       </Head>
 
       {!publicKey || loading ? (
@@ -590,7 +616,7 @@ export default function DonorProfilePage() {
                   </span>
                 </div>
               </div>
-              <ShareButton url={profileUrl} />
+              <ShareButton url={profileUrl} profile={profile} />
             </div>
 
             {profile.bio && (
