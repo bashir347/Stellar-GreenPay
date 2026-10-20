@@ -14,6 +14,28 @@ USER greenpay
 
 CMD ["npm", "test"]
 
+# Dev stage — `npm run dev:docker` uses nodemon, which is a devDependency
+# (made available as the docker-compose.dev.yml build target).
+FROM node:22-alpine AS dev
+
+RUN addgroup -S greenpay && adduser -S greenpay -G greenpay
+
+WORKDIR /app
+
+ENV NODE_ENV development
+
+# Copy package files and install ALL dependencies (incl. nodemon)
+COPY --chown=greenpay:greenpay package*.json ./
+RUN npm ci && chown -R greenpay:greenpay /app/node_modules
+
+COPY --chown=greenpay:greenpay . .
+
+EXPOSE 4000
+
+USER greenpay
+
+CMD ["npm", "run", "dev:docker"]
+
 # 1. Builder Stage
 FROM node:22-alpine AS builder
 
