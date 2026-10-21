@@ -14,8 +14,9 @@ USER greenpay
 
 CMD ["npm", "test"]
 
-# Dev stage — `npm run dev:docker` uses nodemon, which is a devDependency
-# (made available as the docker-compose.dev.yml build target).
+# Dev stage — `npm run dev:docker` uses nodemon, which is a devDependency.
+# Used as the build target by docker-compose.yml and docker-compose.dev.yml;
+# the runner (production) and test stages are unaffected.
 FROM node:22-alpine AS dev
 
 RUN addgroup -S greenpay && adduser -S greenpay -G greenpay

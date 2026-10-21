@@ -19,7 +19,19 @@ services:
       context: ./backend
       dockerfile: Dockerfile
       target: dev
-    command: npm run dev:docker
+    # The anonymous node_modules volume is seeded from the image, but Compose
+    # reuses an existing volume when recreating the container. A volume created
+    # before the dev stage existed holds production dependencies only, so
+    # nodemon would still be missing — reinstall in that case.
+    command:
+      - sh
+      - -c
+      - |
+        if [ ! -x node_modules/.bin/nodemon ]; then
+          echo "dev dependencies missing from node_modules volume - running npm ci"
+          npm ci || exit 1
+        fi
+        exec npm run dev:docker
     environment:
       - CHOKIDAR_USEPOLLING=true
       - CHOKIDAR_INTERVAL=500
