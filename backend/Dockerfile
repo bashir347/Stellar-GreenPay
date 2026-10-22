@@ -18,6 +18,9 @@ CMD ["npm", "test"]
 # devDependencies such as nodemon) for `npm run dev:docker`. docker-compose
 # bind-mounts ./src here so file edits restart the server. Kept before the
 # builder so the default build target stays the production `runner`.
+# Dev stage — `npm run dev:docker` uses nodemon, which is a devDependency.
+# Used as the build target by docker-compose.yml and docker-compose.dev.yml;
+# the runner (production) and test stages are unaffected.
 FROM node:22-alpine AS dev
 
 RUN addgroup -S greenpay && adduser -S greenpay -G greenpay
@@ -31,6 +34,9 @@ COPY --chown=greenpay:greenpay package*.json ./
 # declares a peer of ioredis@5, so a plain `npm ci` aborts with ERESOLVE.
 # Only this stage relaxes peers; the deploy stages are untouched.
 RUN npm ci --legacy-peer-deps && chown -R greenpay:greenpay /app/node_modules
+# Copy package files and install ALL dependencies (incl. nodemon)
+COPY --chown=greenpay:greenpay package*.json ./
+RUN npm ci && chown -R greenpay:greenpay /app/node_modules
 
 COPY --chown=greenpay:greenpay . .
 
