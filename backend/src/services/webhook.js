@@ -650,10 +650,21 @@ async function start() {
   );
 }
 
+async function stop() {
+  if (!boss) return;
+  const runningBoss = boss;
+  try {
+    await runningBoss.stop();
+  } finally {
+    if (boss === runningBoss) boss = null;
+  }
+}
+
 module.exports = {
   checkAndDeliverMilestones,
   deliverPayload,
   start,
+  stop,
   recordAndDeliver,
   attemptDelivery,
   recordAttemptOutcome,

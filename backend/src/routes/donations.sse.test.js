@@ -173,18 +173,16 @@ describe("GET /api/donations/stream", () => {
           }
         }
       });
-    });
 
-    req.on("error", done);
-
-    // Give the connection time to establish, then emit an event
-    setTimeout(() => {
+      // Response headers confirm the stream is connected before we emit.
       donationEvents.emit("new_donation", {
         projectName: "Amazon Reforestation",
         amountXLM: "25.0",
         donorBadge: "Seedling",
       });
-    }, 50);
+    });
+
+    req.on("error", done);
   });
 
   test("emits correctly formatted SSE data line", (done) => {
@@ -205,53 +203,47 @@ describe("GET /api/donations/stream", () => {
           }
         }
       });
-    });
 
-    req.on("error", done);
-
-    setTimeout(() => {
       donationEvents.emit("new_donation", {
         projectName: "Ocean Cleanup",
         amountXLM: "100.0",
         donorBadge: "Tree",
       });
-    }, 50);
+    });
+
+    req.on("error", done);
   });
 
   test("receives multiple events in sequence", (done) => {
-    const events = [];
+    let body = "";
     const expectedCount = 3;
 
     const req = http.get(`${baseUrl}/api/donations/stream`, (res) => {
       res.on("data", (chunk) => {
-        const text = chunk.toString();
-        const match = text.match(/data: ({.*})\n\n/);
-        if (match) {
-          events.push(JSON.parse(match[1]));
-          if (events.length === expectedCount) {
-            try {
-              expect(events[0].projectName).toBe("Project A");
-              expect(events[1].projectName).toBe("Project B");
-              expect(events[2].projectName).toBe("Project C");
-              expect(events[2].amountXLM).toBe("50.0");
-              res.destroy();
-              done();
-            } catch (err) {
-              res.destroy();
-              done(err);
-            }
+        // TCP may combine several events or split a single event across chunks.
+        body += chunk.toString();
+        const events = Array.from(body.matchAll(/data: ({.*})\n\n/g), (match) => JSON.parse(match[1]));
+        if (events.length === expectedCount) {
+          try {
+            expect(events[0].projectName).toBe("Project A");
+            expect(events[1].projectName).toBe("Project B");
+            expect(events[2].projectName).toBe("Project C");
+            expect(events[2].amountXLM).toBe("50.0");
+            res.destroy();
+            done();
+          } catch (err) {
+            res.destroy();
+            done(err);
           }
         }
       });
-    });
 
-    req.on("error", done);
-
-    setTimeout(() => {
       donationEvents.emit("new_donation", { projectName: "Project A", amountXLM: "10.0", donorBadge: "Seedling" });
       donationEvents.emit("new_donation", { projectName: "Project B", amountXLM: "20.0", donorBadge: "Tree" });
       donationEvents.emit("new_donation", { projectName: "Project C", amountXLM: "50.0", donorBadge: "Forest" });
-    }, 50);
+    });
+
+    req.on("error", done);
   });
 
   test("cleans up listener on client disconnect", (done) => {

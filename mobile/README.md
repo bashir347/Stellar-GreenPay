@@ -162,6 +162,43 @@ The app integrates with mobile Stellar wallets via deep links:
 - Freighter Mobile: `freighter://tx?xdr=...`
 - Other wallets can be added via similar deep link schemes
 
+## Stellar SDK version lockstep
+
+`backend`, `frontend` and `mobile` all depend on `@stellar/stellar-sdk`, and the
+three packages move **major versions together**. A transaction envelope, fee
+bump or Soroban simulation built by one package must mean exactly the same
+thing to the others, and that guarantee only holds while they share an SDK
+major. When you bump it, do all three in the same change and update the
+lockfiles (`package-lock.json`) too — a `package.json` that floats ahead of its
+lockfile breaks `npm ci` in the mobile preview-build workflow.
+
+Address validation follows the same rule: the app does not keep its own copy of
+the address format. `utils/stellarValidation.ts` is the only validator in the
+mobile app — `src/hooks/useWallet.ts`, `app/scan.tsx`, `app/donate/[id].tsx`,
+`app/recurring.tsx` and `utils/recurringDonations.ts` all call into it. It gates
+the wire format with the pattern the backend accepts and then checks the base32
+checksum with the SDK's `StrKey`, so an address the app accepts is a real account
+on the network the SDK understands.
+
+Because the app now loads the SDK in more places, note how it is tested: the SDK's
+CommonJS entry requires ESM-only packages (`uint8array-extras`, `@noble/hashes`)
+that the jest-expo transform cannot parse, so `__mocks__/@stellar/stellar-sdk.js`
+stubs the package for every suite the way `__mocks__/axios.js` already stubs
+axios, and suites that need different behaviour (the signed-transaction path in
+`__tests__/DonateScreen.test.tsx`) override it with their own `jest.mock` call.
+When you bump the major, re-check that stub against the exports the app imports
+and re-run the validation and wallet suites:
+
+```bash
+EXPO_PUBLIC_USE_RN_FETCH=1 npx jest __tests__/stellarValidation.test.ts __tests__/useWallet.test.ts
+```
+
+The `EXPO_PUBLIC_USE_RN_FETCH=1` prefix matters: it stops `expo` from installing
+its native `fetch` shim at module-load time, which the React Native version in
+this app cannot satisfy. The prefix is what `npm test` does on Linux and macOS;
+on Windows, set the variable in the shell instead, because the script's POSIX
+assignment is not understood by `cmd`.
+
 ## Deep Links
 
 The app registers the custom scheme `greenpay://` (plus universal links for

@@ -101,4 +101,14 @@ async function start() {
   );
 }
 
-module.exports = { start, runCleanup };
+async function stop() {
+  if (!boss) return;
+  const runningBoss = boss;
+  try {
+    await runningBoss.stop();
+  } finally {
+    if (boss === runningBoss) boss = null;
+  }
+}
+
+module.exports = { start, stop, runCleanup };

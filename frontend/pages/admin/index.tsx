@@ -8,6 +8,8 @@ import { fetchProjects, updateProjectStatus, registerProjectOnChain, confirmProj
 import { formatXLM, shortenAddress } from "@/utils/format";
 import type { ClimateProject } from "@/utils/types";
 
+const API_URL = process.env.NEXT_PUBLIC_API_URL || "http://localhost:4000";
+
 interface AdminIndexProps {
   publicKey: string | null;
   onConnect: (pk: string) => void;
@@ -24,6 +26,10 @@ export default function AdminIndex({ publicKey, onConnect }: AdminIndexProps) {
   const [loadedForKey, setLoadedForKey] = useState<string | null>(null);
   const [manualLoading, setManualLoading] = useState(false);
   const loading = manualLoading || loadedForKey !== publicKey;
+  const [digestPreviewProject, setDigestPreviewProject] = useState<ClimateProject | null>(null);
+  const [digestMonth, setDigestMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [digestEmail, setDigestEmail] = useState("");
+  const [digestLoading, setDigestLoading] = useState(false);
 
   const loadProjects = () => {
     return fetchProjects({ limit: 100 })
@@ -78,6 +84,48 @@ export default function AdminIndex({ publicKey, onConnect }: AdminIndexProps) {
     }
   };
 
+  const handleDigestPreview = async () => {
+    if (!digestPreviewProject) return;
+    try {
+      setDigestLoading(true);
+      const res = await fetch(`${API_URL}/api/admin/digest/preview`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ projectId: digestPreviewProject.id, month: digestMonth }),
+      });
+      if (!res.ok) throw new Error("Failed to preview digest");
+      const html = await res.text();
+      const newWindow = window.open("", "_blank");
+      if (newWindow) {
+        newWindow.document.write(html);
+        newWindow.document.close();
+      }
+    } catch (e: unknown) {
+      setError((e as Error).message || "Failed to preview digest");
+    } finally {
+      setDigestLoading(false);
+    }
+  };
+
+  const handleDigestTestSend = async () => {
+    if (!digestPreviewProject || !digestEmail) return;
+    try {
+      setDigestLoading(true);
+      const res = await fetch(`${API_URL}/api/admin/digest/test-send`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: digestEmail, projectId: digestPreviewProject.id, month: digestMonth }),
+      });
+      const data = await res.json();
+      if (!res.ok) throw new Error(data.error || "Failed to send test digest");
+      alert("Test digest sent successfully!");
+    } catch (e: unknown) {
+      setError((e as Error).message || "Failed to send test digest");
+    } finally {
+      setDigestLoading(false);
+    }
+  };
+
   const pendingProjects = projects.filter(p => (p.status as string) === 'pending');
   const otherProjects = projects.filter(p => (p.status as string) !== 'pending');
 
@@ -94,7 +142,7 @@ export default function AdminIndex({ publicKey, onConnect }: AdminIndexProps) {
   }
 
   return (
-    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 animate-fade-in">
+    <div className="max-w-5xl mx-auto px-4 sm:px-6 py-10 animate-fade-in motion-reduce:animate-none">
       <div className="mb-8">
         <p className="text-xs tracking-[0.22em] uppercase text-[var(--text-tertiary)] dark:text-forest-300 font-body">Admin</p>
         <h1 className="font-display text-3xl font-bold text-forest-900 mb-1">All Projects</h1>
@@ -103,8 +151,63 @@ export default function AdminIndex({ publicKey, onConnect }: AdminIndexProps) {
         </p>
       </div>
 
+      {/* Digest Preview Section */}
+      <div className="card mb-8">
+        <h2 className="font-display text-lg font-bold text-forest-900 mb-4">Monthly Digest Preview</h2>
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 mb-4">
+          <div>
+            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Project</label>
+            <select
+              value={digestPreviewProject?.id || ""}
+              onChange={(e) => setDigestPreviewProject(projects.find(p => p.id === e.target.value) || null)}
+              className="w-full px-3 py-2 border border-[var(--border)] rounded-md text-sm"
+            >
+              <option value="">Select a project...</option>
+              {projects.filter(p => p.status === "active").map(p => (
+                <option key={p.id} value={p.id}>{p.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Month (YYYY-MM)</label>
+            <input
+              type="month"
+              value={digestMonth}
+              onChange={(e) => setDigestMonth(e.target.value)}
+              className="w-full px-3 py-2 border border-[var(--border)] rounded-md text-sm"
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-[var(--text-secondary)] mb-1">Test Email</label>
+            <input
+              type="email"
+              value={digestEmail}
+              onChange={(e) => setDigestEmail(e.target.value)}
+              placeholder="admin@example.com"
+              className="w-full px-3 py-2 border border-[var(--border)] rounded-md text-sm"
+            />
+          </div>
+        </div>
+        <div className="flex gap-3">
+          <button
+            onClick={handleDigestPreview}
+            disabled={!digestPreviewProject || digestLoading}
+            className="btn-secondary text-sm px-4 py-2 disabled:opacity-50"
+          >
+            {digestLoading ? "Loading..." : "Preview Digest"}
+          </button>
+          <button
+            onClick={handleDigestTestSend}
+            disabled={!digestPreviewProject || !digestEmail || digestLoading}
+            className="btn-primary text-sm px-4 py-2 disabled:opacity-50"
+          >
+            {digestLoading ? "Sending..." : "Send Test Email"}
+          </button>
+        </div>
+      </div>
+
       {loading && (
-        <div className="card animate-pulse space-y-4">
+        <div className="card animate-pulse motion-reduce:animate-none space-y-4">
           {[1, 2, 3].map((i) => (
             <div key={i} className="h-4 bg-forest-100 rounded" />
           ))}

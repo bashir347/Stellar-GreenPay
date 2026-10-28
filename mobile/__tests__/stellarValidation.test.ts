@@ -24,6 +24,21 @@ import {
   ZEROED_PUBLIC_KEY,
 } from '../utils/stellarValidation';
 
+// The app gates the wire format itself and delegates the base32 checksum to
+// the SDK (issue #1654 — same major the backend signs envelopes with). The
+// SDK cannot be imported under jest-expo, so this suite stubs the one export
+// the validator uses and pins how the two layers compose.
+const BAD_CHECKSUM_ADDRESS = 'GCEZWKCA5VLDNRLN3RPRJMRZOX3Z6G5CHCGLEWZE5BGYTG2XTGQBC3VQ';
+const mockIsValidEd25519PublicKey = jest.fn(
+  (key: string) => key !== BAD_CHECKSUM_ADDRESS,
+);
+
+jest.mock('@stellar/stellar-sdk', () => ({
+  StrKey: {
+    isValidEd25519PublicKey: (key: string) => mockIsValidEd25519PublicKey(key),
+  },
+}));
+
 const VALID_ADDRESS = 'GCEZWKCA5VLDNRLN3RPRJMRZOX3Z6G5CHCGLEWZE5BGYTG2XTGQBC3VP';
 
 describe('isValidStellarAddress', () => {
@@ -85,6 +100,35 @@ describe('isValidStellarAddress', () => {
 
   it('rejects an object', () => {
     expect(isValidStellarAddress({})).toBe(false);
+  });
+
+  it('asks the SDK to check the checksum once the format matches', () => {
+    expect(isValidStellarAddress(VALID_ADDRESS)).toBe(true);
+    expect(mockIsValidEd25519PublicKey).toHaveBeenCalledWith(VALID_ADDRESS);
+  });
+
+  it('rejects a well-formed key whose checksum the SDK does not recognise', () => {
+    // A single trailing character off makes the base32 checksum fail while the
+    // shape still looks like an account: exactly the paste-typo a bare regex
+    // wave-passes, and the reason validation goes through the SDK (#1654).
+    expect(isValidStellarAddress(BAD_CHECKSUM_ADDRESS)).toBe(false);
+    expect(markTestnetAddress(BAD_CHECKSUM_ADDRESS)).toBeNull();
+
+    const result = validateStellarAddress(BAD_CHECKSUM_ADDRESS, {
+      env: { EXPO_PUBLIC_STELLAR_NETWORK: 'mainnet' },
+    });
+    expect(result.isValid).toBe(false);
+    expect(result.address).toBeNull();
+    expect(result.error).toBe(
+      'Invalid Stellar address. Must be a valid 56-character Stellar public key (G…).',
+    );
+  });
+
+  it('never reaches the SDK for a value that is not shaped like a key', () => {
+    mockIsValidEd25519PublicKey.mockClear();
+    expect(isValidStellarAddress(`g${'A'.repeat(55)}`)).toBe(false);
+    expect(isValidStellarAddress('G123')).toBe(false);
+    expect(mockIsValidEd25519PublicKey).not.toHaveBeenCalled();
   });
 });
 
@@ -288,7 +332,9 @@ describe('validateStellarAddress — mainnet warning for testnet addresses (issu
     expect(result.isValid).toBe(false);
     expect(result.address).toBeNull();
     expect(result.warning).toBeNull();
-    expect(result.error).toBe('Invalid Stellar address. Must start with G and be 56 characters.');
+    expect(result.error).toBe(
+      'Invalid Stellar address. Must be a valid 56-character Stellar public key (G…).',
+    );
   });
 });
 

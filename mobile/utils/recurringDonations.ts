@@ -21,6 +21,7 @@ import AsyncStorage from '@react-native-async-storage/async-storage';
 import { useCallback, useEffect, useRef, useState } from 'react';
 import { AppState, type AppStateStatus } from 'react-native';
 import axios from 'axios';
+import { isValidStellarAddress } from './stellarValidation';
 
 export const RECURRING_DONATIONS_KEY = 'greenpay_recurring_donations';
 
@@ -44,9 +45,6 @@ function randomId(): string {
 }
 
 const API_URL = process.env.EXPO_PUBLIC_API_URL || 'http://localhost:4000';
-
-/** Stellar public keys are 56-char base32 strings starting with 'G'. */
-const DONOR_ADDRESS_RE = /^G[A-Z0-9]{55}$/;
 
 export class RecurringDonationValidationError extends Error {
   constructor(message: string) {
@@ -214,7 +212,7 @@ async function fetchServerPledges(donorAddress: string): Promise<RecurringDonati
 }
 
 async function postNewPledge(donation: RecurringDonation): Promise<RecurringDonation | null> {
-  if (!donation.donorAddress || !DONOR_ADDRESS_RE.test(donation.donorAddress)) return null;
+  if (!isValidStellarAddress(donation.donorAddress)) return null;
   // The API models a fixed term only (durationMonths 1–120); open-ended
   // pledges cannot be persisted server-side yet and stay local-only.
   if (donation.durationMonths === null) return null;
@@ -263,7 +261,7 @@ export async function syncRecurringDonations(
   const donorAddress =
     explicitDonorAddress || local.find((d) => d.donorAddress)?.donorAddress || '';
 
-  if (!DONOR_ADDRESS_RE.test(donorAddress)) {
+  if (!isValidStellarAddress(donorAddress)) {
     return { donations: local, remoteAvailable: false, pushed: 0 };
   }
 

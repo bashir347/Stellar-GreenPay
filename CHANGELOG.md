@@ -36,6 +36,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Donor profile page now pages through donation history 20 rows at a time with a "Load more" control instead of truncating the full list client-side (#1080).
 - New `STELLAR_TIMEOUT_MS` setting (default 15000) bounds Federation, stellar.toml, Horizon and Soroban RPC requests (#1097).
 - New `IMAGE_MODERATION_*` settings for enabling moderation, its confidence thresholds and its fail-open/fail-closed mode (#1101).
+- The mobile app validates Stellar addresses through the shared `mobile/utils/stellarValidation.ts` helper (SDK `StrKey` checksum plus the backend's wire format) instead of four independent copies of the `G[A-Z0-9]{55}` regex, and `mobile/package-lock.json` now resolves `@stellar/stellar-sdk` 17.x to match the backend and frontend majors (#1654).
 
 ### Fixed
 

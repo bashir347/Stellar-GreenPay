@@ -32,10 +32,20 @@ spec:
                 name: greenpay-secrets
           readinessProbe:
             httpGet:
+              path: /api/readiness
+              port: 4000
+            initialDelaySeconds: 15
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          livenessProbe:
+            httpGet:
               path: /health
               port: 4000
-            initialDelaySeconds: 10
-            periodSeconds: 10
+            initialDelaySeconds: 30
+            periodSeconds: 15
+            timeoutSeconds: 5
+            failureThreshold: 3
           resources:
             requests:
               cpu: "100m"

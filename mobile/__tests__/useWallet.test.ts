@@ -142,7 +142,9 @@ describe('useWallet', () => {
     expect(connectResult).toBe(false);
     expect(SecureStore.setItemAsync).not.toHaveBeenCalled();
     expect(result.current.publicKey).toBe(null);
-    expect(result.current.error).toBe('Invalid Stellar address. Must start with G and be 56 characters.');
+    expect(result.current.error).toBe(
+      'Invalid Stellar address. Must be a valid 56-character Stellar public key (G…).',
+    );
   });
 
   it('rejects public key that is too short', async () => {
@@ -160,7 +162,9 @@ describe('useWallet', () => {
     });
     
     expect(connectResult).toBe(false);
-    expect(result.current.error).toBe('Invalid Stellar address. Must start with G and be 56 characters.');
+    expect(result.current.error).toBe(
+      'Invalid Stellar address. Must be a valid 56-character Stellar public key (G…).',
+    );
   });
 
   it('rejects public key that does not start with G', async () => {
@@ -180,7 +184,9 @@ describe('useWallet', () => {
     });
     
     expect(connectResult).toBe(false);
-    expect(result.current.error).toBe('Invalid Stellar address. Must start with G and be 56 characters.');
+    expect(result.current.error).toBe(
+      'Invalid Stellar address. Must be a valid 56-character Stellar public key (G…).',
+    );
   });
 
   it('clears previous error when attempting new connection', async () => {

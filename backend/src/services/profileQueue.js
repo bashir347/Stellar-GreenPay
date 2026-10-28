@@ -331,8 +331,19 @@ async function enqueueAvatarProcessing(donorAddress, avatarUrl) {
   return boss.send(AVATAR_QUEUE, { donorAddress, avatarUrl }, { retryLimit: 3, retryDelay: 10 });
 }
 
+async function stop() {
+  if (!boss) return;
+  const runningBoss = boss;
+  try {
+    await runningBoss.stop();
+  } finally {
+    if (boss === runningBoss) boss = null;
+  }
+}
+
 module.exports = {
   start,
+  stop,
   enqueueProfileUpdate: _enqueueProfileUpdateImpl,
   processProfileUpdate,
   enqueueAvatarProcessing,

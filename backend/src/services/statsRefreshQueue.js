@@ -169,8 +169,19 @@ async function start() {
   logger.info({ event: "stats_refresh_scheduled", queue: QUEUE }, `[statsRefreshQueue] scheduled every 60s on queue: ${QUEUE}`);
 }
 
+async function stop() {
+  if (!boss) return;
+  const runningBoss = boss;
+  try {
+    await runningBoss.stop();
+  } finally {
+    if (boss === runningBoss) boss = null;
+  }
+}
+
 module.exports = {
   start,
+  stop,
   refreshGlobalStatsMv,
   onExpire,
   moveToDeadLetter,

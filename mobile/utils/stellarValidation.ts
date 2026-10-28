@@ -1,7 +1,14 @@
 /**
  * utils/stellarValidation.ts
- * Lightweight Stellar address validation for the mobile app.
- * Mirrors the regex used in the backend donations route.
+ * Stellar address validation for the mobile app.
+ *
+ * This is the single validator the app uses: wallet connect, QR scan,
+ * donation destinations and the recurring-donation client all call
+ * `isValidStellarAddress` / `validateStellarAddress` here rather than
+ * repeating a regex. Format is gated by the same pattern the backend
+ * accepts, and the base32 checksum is checked by `@stellar/stellar-sdk` —
+ * the same SDK major the backend builds envelopes with (see the lockstep
+ * note in `mobile/README.md`).
  *
  * Issue #1126: a well-formed G-address tells us nothing about *which*
  * network the account lives on. Friendbot hands out brand-new testnet
@@ -25,6 +32,7 @@
  * mainnet build still flags the account.
  */
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import { StrKey } from '@stellar/stellar-sdk';
 
 export type StellarNetwork = 'mainnet' | 'testnet';
 
@@ -205,10 +213,28 @@ export function resetKnownTestnetAddresses(): void {
   recordedTestnetAddresses.clear();
 }
 
-/** Returns true when `address` is a valid Stellar Ed25519 public key (G…). */
+/**
+ * Wire-format gate for an Ed25519 public key. Identical to the pattern the
+ * backend applies to every address it stores
+ * (`STELLAR_PUBLIC_KEY_RE` in `backend/src/config/constants.js`), so the app
+ * never rejects a value the API would have accepted.
+ */
+const STELLAR_PUBLIC_KEY_RE = /^G[A-Z0-9]{55}$/;
+
+/**
+ * Returns true when `address` is a valid Stellar Ed25519 public key (G…).
+ *
+ * Format alone is not enough: base32 encodes a checksum in the last bytes,
+ * and a key with the wrong checksum names no account on any network. That
+ * check comes from the SDK rather than a hand-rolled decoder, so it is the
+ * same code path — and same major version — the backend uses to build and
+ * sign envelopes (issue #1654: backend, frontend and mobile move
+ * `@stellar/stellar-sdk` majors together).
+ */
 export function isValidStellarAddress(address: unknown): address is string {
   if (typeof address !== 'string') return false;
-  return /^G[A-Z0-9]{55}$/.test(address);
+  if (!STELLAR_PUBLIC_KEY_RE.test(address)) return false;
+  return StrKey.isValidEd25519PublicKey(address);
 }
 
 export type AddressWarningCode = 'testnet-address-on-mainnet';
@@ -246,7 +272,10 @@ export interface AddressValidationResult {
   warning: AddressNetworkWarning | null;
 }
 
-const INVALID_ADDRESS_ERROR = 'Invalid Stellar address. Must start with G and be 56 characters.';
+/** Shared wording for every rejection this module raises, so screens and
+ *  hooks cannot drift apart on what the user is told. */
+export const INVALID_ADDRESS_ERROR =
+  'Invalid Stellar address. Must be a valid 56-character Stellar public key (G…).';
 
 /**
  * The single entry point for address checks: hard format validation plus

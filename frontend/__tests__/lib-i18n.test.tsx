@@ -24,6 +24,7 @@ import {
   type Locale,
 } from "@/lib/i18n";
 import { formatXLM } from "@/utils/format";
+import ptBR from "@/locales/pt-BR.json";
 
 function setNavigatorLocale(value: string | null, preferred?: string[]) {
   if (preferred) {
@@ -103,6 +104,7 @@ describe("isLocale", () => {
     expect(isLocale("fr")).toBe(true);
     expect(isLocale("ar")).toBe(true);
     expect(isLocale("de")).toBe(false);
+    expect(isLocale("pt")).toBe(false);
     expect(isLocale("")).toBe(false);
     expect(isLocale(undefined)).toBe(false);
     expect(isLocale(null)).toBe(false);
@@ -158,6 +160,11 @@ describe("detectBrowserLocale", () => {
     setNavigatorLocale("zu-ZA", ["zu"]);
     expect(detectBrowserLocale()).toBe(DEFAULT_LOCALE);
   });
+
+  it("matches a full hyphenated tag such as pt-BR", () => {
+    setNavigatorLocale("pt-BR", ["pt-BR"]);
+    expect(detectBrowserLocale()).toBe("pt-BR");
+  });
 });
 
 describe("isRTL", () => {
@@ -205,6 +212,17 @@ describe("I18nProvider", () => {
     expect(screen.getByTestId("locale").textContent).toBe("fr");
     expect(screen.getByTestId("nav-home").textContent).toBe("Accueil");
     expect(document.documentElement.lang).toBe("fr");
+  });
+
+  it("hydrates a stored pt-BR preference (hyphenated locale code)", () => {
+    localStorage.setItem(LOCALE_STORAGE_KEY, "pt-BR");
+    setNavigatorLocale("en-US", ["en-US"]);
+
+    renderProvider();
+
+    expect(screen.getByTestId("locale").textContent).toBe("pt-BR");
+    expect(screen.getByTestId("nav-home").textContent).toBe(ptBR.nav.home);
+    expect(document.documentElement.lang).toBe("pt-BR");
   });
 
   it("persists an explicit choice so a reload keeps it", () => {

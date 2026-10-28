@@ -59,6 +59,7 @@ jest.mock("../routes/admin", () => mockPassThroughRouter);
 const express = require("express");
 const request = require("supertest");
 const { Keypair } = require("@stellar/stellar-sdk");
+const { signToken } = require("../middleware/auth");
 const pool = require("../db/pool");
 const { deliverPayload } = require("../services/webhook");
 const webhooksRouter = require("./webhooks");
@@ -100,6 +101,7 @@ describe("GET /api/webhooks/:projectId", () => {
     const res = await request(app)
       .get(`/api/webhooks/${PROJECT_ID}`)
       .set("X-Wallet-Address", OWNER_ADDRESS)
+      .set("Authorization", `Bearer ${signToken({ type: "wallet", sub: OWNER_ADDRESS }, "5m")}`)
       .expect(200);
 
     expect(res.body.success).toBe(true);
@@ -124,6 +126,7 @@ describe("GET /api/webhooks/:projectId", () => {
     const res = await request(app)
       .get(`/api/webhooks/${PROJECT_ID}`)
       .set("X-Wallet-Address", OWNER_ADDRESS)
+      .set("Authorization", `Bearer ${signToken({ type: "wallet", sub: OWNER_ADDRESS }, "5m")}`)
       .expect(200);
 
     expect(res.body.data).toEqual({
@@ -137,6 +140,7 @@ describe("GET /api/webhooks/:projectId", () => {
   test("rejects requests without X-Wallet-Address", async () => {
     const res = await request(app)
       .get(`/api/webhooks/${PROJECT_ID}`)
+      .set("Authorization", `Bearer ${signToken({ type: "wallet", sub: OWNER_ADDRESS }, "5m")}`)
       .expect(401);
 
     expect(res.body.error).toBe("X-Wallet-Address header is required");
@@ -147,6 +151,7 @@ describe("GET /api/webhooks/:projectId", () => {
     const res = await request(app)
       .get(`/api/webhooks/${PROJECT_ID}`)
       .set("X-Wallet-Address", "not-a-stellar-address")
+      .set("Authorization", `Bearer ${signToken({ type: "wallet", sub: OWNER_ADDRESS }, "5m")}`)
       .expect(400);
 
     expect(res.body.error).toBe("X-Wallet-Address must be a valid Stellar address");
@@ -159,6 +164,7 @@ describe("GET /api/webhooks/:projectId", () => {
     const res = await request(app)
       .get(`/api/webhooks/${PROJECT_ID}`)
       .set("X-Wallet-Address", OWNER_ADDRESS)
+      .set("Authorization", `Bearer ${signToken({ type: "wallet", sub: OWNER_ADDRESS }, "5m")}`)
       .expect(404);
 
     expect(res.body.error).toBe("Project not found");
@@ -177,6 +183,7 @@ describe("GET /api/webhooks/:projectId", () => {
     const res = await request(app)
       .get(`/api/webhooks/${PROJECT_ID}`)
       .set("X-Wallet-Address", OTHER_ADDRESS)
+      .set("Authorization", `Bearer ${signToken({ type: "wallet", sub: OTHER_ADDRESS }, "5m")}`)
       .expect(403);
 
     expect(res.body.error).toBe("Only the project owner can view webhook configuration");
@@ -201,6 +208,7 @@ describe("GET /api/webhooks/:projectId", () => {
       .get(`/api/webhooks/${PROJECT_ID}`)
       .set("X-Wallet-Address", OWNER_ADDRESS)
       .set("X-Wallet-Challenge", challenge)
+      .set("Authorization", `Bearer ${signToken({ type: "wallet", sub: OWNER_ADDRESS }, "5m")}`)
       .set("X-Wallet-Signature", signature)
       .expect(200);
 
@@ -222,6 +230,7 @@ describe("GET /api/webhooks/:projectId", () => {
       .get(`/api/webhooks/${PROJECT_ID}`)
       .set("X-Wallet-Address", OWNER_ADDRESS)
       .set("X-Wallet-Challenge", "tampered-challenge")
+      .set("Authorization", `Bearer ${signToken({ type: "wallet", sub: OWNER_ADDRESS }, "5m")}`)
       .set("X-Wallet-Signature", Buffer.from(OWNER_KEYPAIR.sign(Buffer.from("other", "utf8"))).toString("base64"))
       .expect(403);
 
@@ -267,6 +276,7 @@ describe("GET /api/webhooks/:projectId/history", () => {
 
     const res = await request(app)
       .get(`/api/webhooks/${PROJECT_ID}/history?page=1&pageSize=20`)
+      .set("Authorization", `Bearer ${signToken({ type: "wallet", sub: OWNER_ADDRESS }, "5m")}`)
       .set("X-Wallet-Address", OWNER_ADDRESS)
       .expect(200);
 
@@ -305,6 +315,7 @@ describe("GET /api/webhooks/:projectId/history", () => {
     const res = await request(app)
       .get(`/api/webhooks/${PROJECT_ID}/history`)
       .set("X-Wallet-Address", OTHER_ADDRESS)
+      .set("Authorization", `Bearer ${signToken({ type: "wallet", sub: OTHER_ADDRESS }, "5m")}`)
       .expect(403);
 
     expect(res.body.error).toBe("Only the project owner can view webhook configuration");
@@ -313,6 +324,7 @@ describe("GET /api/webhooks/:projectId/history", () => {
   test("rejects requests without X-Wallet-Address", async () => {
     const res = await request(app)
       .get(`/api/webhooks/${PROJECT_ID}/history`)
+      .set("Authorization", `Bearer ${signToken({ type: "wallet", sub: OWNER_ADDRESS }, "5m")}`)
       .expect(401);
 
     expect(res.body.error).toBe("X-Wallet-Address header is required");
@@ -340,6 +352,7 @@ describe("PATCH /api/webhooks/:projectId/test", () => {
 
     const res = await request(app)
       .patch(`/api/webhooks/${PROJECT_ID}/test`)
+      .set("Authorization", `Bearer ${signToken({ type: "wallet", sub: OWNER_ADDRESS }, "5m")}`)
       .set("X-Wallet-Address", OWNER_ADDRESS)
       .expect(200);
 
@@ -363,6 +376,7 @@ describe("PATCH /api/webhooks/:projectId/test", () => {
 
     const res = await request(app)
       .patch(`/api/webhooks/${PROJECT_ID}/test`)
+      .set("Authorization", `Bearer ${signToken({ type: "wallet", sub: OWNER_ADDRESS }, "5m")}`)
       .set("X-Wallet-Address", OWNER_ADDRESS)
       .expect(400);
 
@@ -383,6 +397,7 @@ describe("PATCH /api/webhooks/:projectId/test", () => {
 
     const res = await request(app)
       .patch(`/api/webhooks/${PROJECT_ID}/test`)
+      .set("Authorization", `Bearer ${signToken({ type: "wallet", sub: OWNER_ADDRESS }, "5m")}`)
       .set("X-Wallet-Address", OWNER_ADDRESS)
       .expect(502);
 
@@ -401,14 +416,14 @@ describe("Webhooks router mounts on the exported app (#1531)", () => {
     const res = await request(serverApp).get(`/api/webhooks/${PROJECT_ID}`);
 
     expect(res.status).toBe(401);
-    expect(res.body.error).toBe("X-Wallet-Address header is required");
+    expect(res.body.error).toBe("Missing or malformed Authorization header");
   });
 
   test("reaches the webhooks router at /api/v1/webhooks (401, not the 404 handler)", async () => {
     const res = await request(serverApp).get(`/api/v1/webhooks/${PROJECT_ID}`);
 
     expect(res.status).toBe(401);
-    expect(res.body.error).toBe("X-Wallet-Address header is required");
+    expect(res.body.error).toBe("Missing or malformed Authorization header");
   });
 
   test("serves the webhook configuration through both prefixes", async () => {
@@ -423,9 +438,11 @@ describe("Webhooks router mounts on the exported app (#1531)", () => {
 
     const legacy = await request(serverApp)
       .get(`/api/webhooks/${PROJECT_ID}`)
+      .set("Authorization", `Bearer ${signToken({ type: "wallet", sub: OWNER_ADDRESS }, "5m")}`)
       .set("X-Wallet-Address", OWNER_ADDRESS);
     const versioned = await request(serverApp)
       .get(`/api/v1/webhooks/${PROJECT_ID}`)
+      .set("Authorization", `Bearer ${signToken({ type: "wallet", sub: OWNER_ADDRESS }, "5m")}`)
       .set("X-Wallet-Address", OWNER_ADDRESS);
 
     expect(legacy.status).toBe(200);
@@ -449,9 +466,11 @@ describe("Webhooks router mounts on the exported app (#1531)", () => {
 
     const legacy = await request(serverApp)
       .get(`/api/webhooks/${PROJECT_ID}/history`)
+      .set("Authorization", `Bearer ${signToken({ type: "wallet", sub: OWNER_ADDRESS }, "5m")}`)
       .set("X-Wallet-Address", OWNER_ADDRESS);
     const versioned = await request(serverApp)
       .get(`/api/v1/webhooks/${PROJECT_ID}/history`)
+      .set("Authorization", `Bearer ${signToken({ type: "wallet", sub: OWNER_ADDRESS }, "5m")}`)
       .set("X-Wallet-Address", OWNER_ADDRESS);
 
     expect(legacy.status).toBe(200);
@@ -476,6 +495,7 @@ describe("Webhooks router mounts on the exported app (#1531)", () => {
     const res = await agent
       .patch(`/api/v1/webhooks/${PROJECT_ID}/test`)
       .set("X-CSRF-Token", tokenResponse.body.csrfToken)
+      .set("Authorization", `Bearer ${signToken({ type: "wallet", sub: OWNER_ADDRESS }, "5m")}`)
       .set("X-Wallet-Address", OWNER_ADDRESS)
       .expect(200);
 

@@ -93,4 +93,14 @@ async function start() {
   await boss.work(QUEUE, { teamSize: 1, teamConcurrency: 1 }, () => runDigest());
 }
 
-module.exports = { start, runDigest, buildDigestHtml, buildDigestText };
+async function stop() {
+  if (!boss) return;
+  const runningBoss = boss;
+  try {
+    await runningBoss.stop();
+  } finally {
+    if (boss === runningBoss) boss = null;
+  }
+}
+
+module.exports = { start, stop, runDigest, buildDigestHtml, buildDigestText };

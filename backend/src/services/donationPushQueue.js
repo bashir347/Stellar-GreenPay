@@ -126,8 +126,19 @@ async function enqueueDonationPushNotification(data) {
   }
 }
 
+async function stop() {
+  if (!boss) return;
+  const runningBoss = boss;
+  try {
+    await runningBoss.stop();
+  } finally {
+    if (boss === runningBoss) boss = null;
+  }
+}
+
 module.exports = {
   start,
+  stop,
   enqueueDonationPushNotification,
   QUEUE,
 };

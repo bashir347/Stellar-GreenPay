@@ -9,6 +9,7 @@ const express = require("express");
 const router = express.Router();
 const pool = require("../db/pool");
 const { deliverPayload } = require("../services/webhook");
+const { walletAuthRequired } = require("../middleware/auth");
 const {
   STELLAR_ADDRESS_RE,
   getWalletAddressFromRequest,
@@ -83,7 +84,7 @@ async function requireProjectOwner(req, res) {
  * GET /api/webhooks/:projectId/history
  * Paginated list of recent webhook delivery attempts for a project.
  */
-router.get("/:projectId/history", async (req, res, next) => {
+router.get("/:projectId/history", walletAuthRequired, async (req, res, next) => {
   try {
     const project = await requireProjectOwner(req, res);
     if (!project) return;
@@ -128,7 +129,7 @@ router.get("/:projectId/history", async (req, res, next) => {
  * PATCH /api/webhooks/:projectId/test
  * Send a signed test event to the project's configured webhook URL.
  */
-router.patch("/:projectId/test", async (req, res, next) => {
+router.patch("/:projectId/test", walletAuthRequired, async (req, res, next) => {
   try {
     const project = await requireProjectOwner(req, res);
     if (!project) return;
@@ -164,7 +165,7 @@ router.patch("/:projectId/test", async (req, res, next) => {
  * GET /api/webhooks/:projectId
  * Project owners can view their configured webhook URL and a masked secret.
  */
-router.get("/:projectId", async (req, res, next) => {
+router.get("/:projectId", walletAuthRequired, async (req, res, next) => {
   try {
     const project = await requireProjectOwner(req, res);
     if (!project) return;

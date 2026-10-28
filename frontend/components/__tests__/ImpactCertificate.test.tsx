@@ -2,7 +2,6 @@ import { readdirSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import { render, screen } from "@testing-library/react";
 import ImpactCertificate from "../ImpactCertificate";
-import { badgeLabel } from "@/utils/format";
 
 const baseProps = {
   donorAddress: "GABCDEFGHIJKLMNOPQRSTUVWXYZ234567ABCDEFGHIJKLMNOPQRST",
@@ -39,7 +38,6 @@ describe("ImpactCertificate", () => {
     expect(screen.getByText("Amazon Reforestation")).toBeInTheDocument();
   });
 
-
   it("keeps branch-name merge residue out of component tests", () => {
     const sourceFiles = (directory: string): string[] =>
       readdirSync(directory, { withFileTypes: true }).flatMap((entry) => {
@@ -47,7 +45,6 @@ describe("ImpactCertificate", () => {
         if (entry.isDirectory()) return sourceFiles(path);
         return /\.(?:[cm]?[jt]sx?)$/.test(entry.name) ? [path] : [];
       });
-
     const residue = /^\s*(?:main|fix\/[\w./-]+|feature\/[\w./-]+)\s*$/m;
     for (const path of sourceFiles(__dirname)) {
       expect(readFileSync(path, "utf8")).not.toMatch(residue);
@@ -58,6 +55,7 @@ describe("ImpactCertificate", () => {
     const { container } = render(<ImpactCertificate {...baseProps} />);
     expect(container).toMatchSnapshot();
   });
+
   it.each([
     ["seedling", "Seedling"],
     ["tree", "Tree"],
@@ -68,3 +66,4 @@ describe("ImpactCertificate", () => {
     expect(screen.getByText(label)).toBeInTheDocument();
   });
 });
+

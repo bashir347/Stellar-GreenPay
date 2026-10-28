@@ -28,8 +28,8 @@ function verifySignedChallenge(walletAddress, challenge, signatureBase64) {
 
 /**
  * Returns true when the request proves ownership of projectWalletAddress.
- * Accepts a matching X-Wallet-Address header, or a signed challenge via
- * X-Wallet-Challenge + X-Wallet-Signature (with X-Wallet-Address).
+ * Requires a wallet identity established by walletAuthRequired and a matching
+ * X-Wallet-Address header. Optional challenge headers must also verify.
  */
 function isProjectOwner(req, projectWalletAddress) {
   const walletAddress = getWalletAddressFromRequest(req);
@@ -38,6 +38,10 @@ function isProjectOwner(req, projectWalletAddress) {
   }
 
   if (walletAddress !== projectWalletAddress) {
+    return false;
+  }
+
+  if (req.walletAddress !== walletAddress) {
     return false;
   }
 

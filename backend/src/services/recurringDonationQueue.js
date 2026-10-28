@@ -337,12 +337,14 @@ async function start() {
  */
 async function stop() {
   if (!boss) return;
+  const runningBoss = boss;
   try {
-    await boss.stop();
+    await runningBoss.stop();
   } catch (err) {
     logger.error({ event: "recurring_donation_boss_stop_error", err }, err.message);
+    throw err;
   } finally {
-    boss = null;
+    if (boss === runningBoss) boss = null;
   }
 }
 

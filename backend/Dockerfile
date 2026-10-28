@@ -17,6 +17,8 @@ CMD ["npm", "test"]
 # Dev stage — `npm run dev:docker` uses nodemon, which is a devDependency.
 # Used as the build target by docker-compose.yml and docker-compose.dev.yml;
 # the runner (production) and test stages are unaffected.
+# Dev stage — full deps (incl. nodemon) for docker-compose dev hot reload.
+# Not the default target: deploys still build the final "runner" stage.
 FROM node:22-alpine AS dev
 
 RUN addgroup -S greenpay && adduser -S greenpay -G greenpay

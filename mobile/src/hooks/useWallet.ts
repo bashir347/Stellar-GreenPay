@@ -1,6 +1,6 @@
 import { useState, useEffect, useCallback } from 'react';
 import * as SecureStore from 'expo-secure-store';
-import { StrKey } from '@stellar/stellar-sdk';
+import { INVALID_ADDRESS_ERROR, isValidStellarAddress } from '../../utils/stellarValidation';
 
 const WALLET_KEY = 'greenpay_stellar_public_key';
 
@@ -24,58 +24,34 @@ export function useWallet() {
     setError(null);
     const trimmed = address.trim();
 
-    if (!StrKey.isValidEd25519PublicKey(trimmed)) {
-      setError('Invalid Stellar address. Must start with G and be 56 characters.');
+    if (!isValidStellarAddress(trimmed)) {
+      setError(INVALID_ADDRESS_ERROR);
       return false;
     }
 
-
+    // Storage is best-effort in one direction only: if the Keychain entry
+    // can't be written (stale device, OS-level migration), we stay
+    // disconnected instead of flipping `publicKey`, so the UI keeps showing
+    // "Connect wallet" and the caller sees `false`.
     try {
       await SecureStore.setItemAsync(WALLET_KEY, trimmed);
     } catch {
-      // Persistence failed — stay disconnected rather than half-connected.
-      return false;
-    }
-
-    // Storage write is best-effort — same posture as `disconnect`. If the
-    // Keychain entry can't be written (stale device, OS-level migration,
-    // or spoofed CI test rejection) we surface the failure to the caller
-    // and refuse to flip `publicKey` so the UI stays on "Connect wallet".
-    try {
-      await SecureStore.setItemAsync(WALLET_KEY, trimmed);
-    } catch {
-      // intentionally unused — see comment block above; UI surfaces
-      // the failure via `error` and the returned `false`.
       setError('Could not save wallet to secure storage. Please try again.');
       return false;
     }
-
 
     setPublicKey(trimmed);
     return true;
   }, []);
 
   const disconnect = useCallback(async () => {
-
     try {
       await SecureStore.deleteItemAsync(WALLET_KEY);
     } catch {
-      // Storage failure is non-fatal; still clear the in-memory key below so
+      // Storage failure is non-fatal; the in-memory key is cleared below so
       // the user is never left "connected" after choosing to disconnect.
-    } finally {
-      setPublicKey(null);
-    }
-
-    // Storage delete is best-effort — local state must still reset so the
-    // "Connect wallet" UI becomes reachable even if the Keychain entry
-    // couldn't be removed (stale device, OS-level migration, etc.).
-    try {
-      await SecureStore.deleteItemAsync(WALLET_KEY);
-    } catch {
-      // intentionally swallowed; see comment above
     }
     setPublicKey(null);
-
   }, []);
 
   return { publicKey, loading, error, connect, disconnect };

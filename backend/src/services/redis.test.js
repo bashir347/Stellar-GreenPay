@@ -14,6 +14,7 @@
 const mockConnect = jest.fn().mockResolvedValue(undefined);
 const mockOn = jest.fn();
 const mockQuit = jest.fn().mockResolvedValue("OK");
+const mockDisconnect = jest.fn();
 
 const MockRedis = jest.fn().mockImplementation(() => ({
   status: "ready",
@@ -26,6 +27,7 @@ const MockRedis = jest.fn().mockImplementation(() => ({
   ping: jest.fn().mockResolvedValue("PONG"),
   call: jest.fn(),
   quit: mockQuit,
+  disconnect: mockDisconnect,
 }));
 
 jest.mock("ioredis", () => MockRedis);
@@ -67,6 +69,7 @@ describe("Redis singleton service", () => {
     expect(typeof redis.ping).toBe("function");
     expect(typeof redis.sendCommand).toBe("function");
     expect(typeof redis.quit).toBe("function");
+    expect(typeof redis.disconnect).toBe("function");
   });
 
   test("client is not reassignable (const)", () => {
@@ -110,6 +113,21 @@ describe("Redis singleton service", () => {
   test("quit() calls client.quit() when status is ready", async () => {
     await redis.quit();
     expect(mockQuit).toHaveBeenCalled();
+  });
+
+  test("disconnect() gracefully quits a ready client", async () => {
+    await redis.disconnect();
+    expect(mockQuit).toHaveBeenCalled();
+    expect(mockDisconnect).not.toHaveBeenCalled();
+  });
+
+  test("disconnect() closes a client that is not ready", async () => {
+    redis.client.status = "connecting";
+
+    await redis.disconnect();
+
+    expect(mockDisconnect).toHaveBeenCalled();
+    redis.client.status = "ready";
   });
 });
 

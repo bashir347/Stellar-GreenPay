@@ -211,10 +211,9 @@ exports[`ProjectCard matches snapshot for an active, partially-funded project 1`
                 <span
                   class="text-xs text-[var(--text-secondary)] dark:text-[#a8c2a8]"
                 >
-                  2,500
+                  2,500 XLM
                    / 
-                  10,000
-                   XLM
+                  10,000 XLM
                 </span>
               </div>
               <div

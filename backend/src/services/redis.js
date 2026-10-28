@@ -152,4 +152,13 @@ async function quit() {
   }
 }
 
-module.exports = { client, get, set, deletePattern, ping, sendCommand, quit, CACHE_KEY_PREFIX };
+async function disconnect() {
+  if (isTest && !isMockedByJest) return;
+  if (client.status === "ready") {
+    await client.quit();
+  } else if (client.status !== "end" && typeof client.disconnect === "function") {
+    client.disconnect();
+  }
+}
+
+module.exports = { client, get, set, deletePattern, ping, sendCommand, quit, disconnect, CACHE_KEY_PREFIX };

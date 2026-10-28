@@ -145,6 +145,14 @@ export function detectBrowserLocale(): Locale {
 
   for (const candidate of candidates) {
     if (typeof candidate !== "string") continue;
+
+    // Full tags come first so hyphenated locales such as `pt-BR` match;
+    // the 2-letter fallback below keeps `en-US` -> `en` behaviour.
+    const exact = SUPPORTED_LOCALES.find(
+      (l) => l.toLowerCase() === candidate.toLowerCase(),
+    );
+    if (exact) return exact;
+
     const base = candidate.slice(0, 2).toLowerCase();
     if (isLocale(base)) return base;
   }

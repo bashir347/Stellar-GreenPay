@@ -17,11 +17,14 @@ const { startTurretsServer } = require("./services/turrets");
 const { start: startSummaryQueue } = require("./services/summaryQueue");
 const { start: startProfileQueue } = require("./services/profileQueue");
 const { start: startStatsRefreshQueue } = require("./services/statsRefreshQueue");
-const { startIndexer } = require("./services/indexerService");
+const { startIndexer, stopIndexer } = require("./services/indexerService");
+const pool = require("./db/pool");
+const redis = require("./services/redis");
+const { createGracefulShutdown } = require("./services/gracefulShutdown");
 const { isStellarTimeoutError } = require("./services/stellar");
 const { createCorsMiddleware, getAllowedOrigins } = require("./middleware/corsPolicy");
 const { createRateLimiter } = require("./middleware/rateLimiter");
-const { metricsHandler, countRequest, startQueueRefresh } = require("./services/metrics");
+const { metricsHandler, countRequest, startQueueRefresh, stopQueueRefresh } = require("./services/metrics");
 const { createSelectiveCsrf } = require("./middleware/selectiveCsrf");
 const { registerSocketHandlers } = require("./services/socketHandler");
 
@@ -56,6 +59,9 @@ const verificationRouter = require("./routes/verification");
 const app = express();
 const PORT = process.env.PORT || 4000;
 const server = http.createServer(app);
+let turretsServer = null;
+let indexerStartPromise = null;
+let shutdownHandlersRegistered = false;
 
 // Sentry initialization (must be added before other middleware)
 initSentry(app);
@@ -168,6 +174,32 @@ const io = new Server(server, {
 });
 app.set("io", io);
 
+const shutdown = createGracefulShutdown({
+  server,
+  getTurretsServer: () => turretsServer,
+  io,
+  queues: [
+    { name: "summary_queue", stop: () => require("./services/summaryQueue").stop?.() },
+    { name: "profile_queue", stop: () => require("./services/profileQueue").stop?.() },
+    { name: "digest_queue", stop: () => require("./services/digestQueue").stop?.() },
+    { name: "stats_refresh_queue", stop: () => require("./services/statsRefreshQueue").stop?.() },
+    { name: "webhook_queue", stop: () => require("./services/webhook").stop?.() },
+    { name: "recurring_donation_queue", stop: () => require("./services/recurringDonationQueue").stop?.() },
+    { name: "token_cleanup_queue", stop: () => require("./services/tokenCleanupQueue").stop?.() },
+    { name: "donation_push_queue", stop: () => require("./services/donationPushQueue").stop?.() },
+  ],
+  extraStages: [{
+    name: "indexer",
+    run: async () => {
+      if (indexerStartPromise) await indexerStartPromise;
+      stopIndexer();
+    },
+  }, { name: "queue_metrics_refresh", run: stopQueueRefresh }],
+  pool,
+  redis,
+  logger,
+});
+
 registerSocketHandlers(io);
 
 app.use(createRateLimiter(150, 15, "global"));
@@ -252,6 +284,13 @@ app.use((err, req, res, next) => {
 });
 
 async function startServer() {
+  if (!shutdownHandlersRegistered) {
+    process.on("SIGTERM", () => { void shutdown("SIGTERM"); });
+    process.on("SIGINT", () => { void shutdown("SIGINT"); });
+    shutdownHandlersRegistered = true;
+    logger.info({ event: "shutdown_handlers_registered" }, "Registered SIGTERM and SIGINT handlers");
+  }
+
   await runMigrations();
 
   await startSummaryQueue(io);
@@ -273,7 +312,9 @@ async function startServer() {
   const { start: startDonationPushQueue } = require("./services/donationPushQueue");
   await startDonationPushQueue();
 
-  startIndexer(io).catch(err => logger.error({ event: "indexer_startup_error", err }, err.message));
+  indexerStartPromise = startIndexer(io).catch(err => {
+    logger.error({ event: "indexer_startup_error", err }, err.message);
+  });
 
   startQueueRefresh();
 
@@ -285,8 +326,7 @@ async function startServer() {
     const turretsPort = process.env.TURRETS_PORT || 3001;
     // startTurretsServer returns { app, server } so the listener is closeable
     // (tests and graceful shutdown). Keep the reference for future wiring.
-    const { server: turretsServer } = startTurretsServer(turretsPort);
-    void turretsServer;
+    turretsServer = startTurretsServer(turretsPort).server;
   }
 }
 

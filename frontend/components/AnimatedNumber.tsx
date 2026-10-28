@@ -4,6 +4,7 @@
  */
 import { useEffect, useState, useRef } from "react";
 import { formatAmount, normalizeXLMAmount } from "@/utils/format";
+import { usePrefersReducedMotion } from "@/hooks/usePrefersReducedMotion";
 
 export { normalizeXLMAmount };
 
@@ -12,6 +13,7 @@ export interface AnimatedNumberProps {
   duration?: number;
   formatter?: (val: number) => string;
   unit?: string;
+  locale?: string;
 }
 
 export default function AnimatedNumber({
@@ -19,7 +21,16 @@ export default function AnimatedNumber({
   duration = 1500,
   formatter,
   unit,
+  locale: propLocale,
 }: AnimatedNumberProps) {
+  let ctxLocale = "";
+  try {
+    const { locale } = useI18n();
+    ctxLocale = locale;
+  } catch {
+    // Outside I18nProvider
+  }
+  const activeLocale = propLocale || (ctxLocale && ctxLocale !== "en" ? ctxLocale : getFormattingLocale());
   const isXLM = unit === "XLM";
   const isScientific = typeof value === "string" && /[eE]/.test(value);
   const isSmallFloat = typeof value === "number" && !Number.isInteger(value);
@@ -35,10 +46,14 @@ export default function AnimatedNumber({
       : Number(normalizedInput);
 
   const numericValue = isNaN(rawParsed) || !Number.isFinite(rawParsed) ? 0 : rawParsed;
+  const prefersReducedMotion = usePrefersReducedMotion();
 
   const decimalPlaces = (() => {
     if (typeof normalizedInput === "string" && normalizedInput.includes(".")) {
       return normalizedInput.split(".")[1]?.length ?? 0;
+    }
+    if (typeof normalizedInput === "number" && !Number.isInteger(normalizedInput)) {
+      return String(normalizedInput).split(".")[1]?.length ?? 0;
     }
     if (isXLM) return 7;
     return 0;
@@ -50,7 +65,8 @@ export default function AnimatedNumber({
   const startTimeRef = useRef<number | null>(null);
 
   useEffect(() => {
-    if (duration <= 0) {
+    if (duration <= 0 || prefersReducedMotion) {
+      setDisplayValue(numericValue);
       return;
     }
 
@@ -72,12 +88,12 @@ export default function AnimatedNumber({
 
     animationFrameId = requestAnimationFrame(animate);
     return () => cancelAnimationFrame(animationFrameId);
-  }, [numericValue, duration]);
+  }, [numericValue, duration, prefersReducedMotion]);
 
   const formatDisplay = (val: number) => {
     if (formatter) return formatter(val);
-    if (decimalPlaces > 0) return formatAmount(val, decimalPlaces, undefined, decimalPlaces);
-    return formatAmount(Math.floor(val), 0, undefined, 0);
+    if (decimalPlaces > 0) return formatAmount(val, decimalPlaces, activeLocale, decimalPlaces);
+    return formatAmount(Math.floor(val), 0, activeLocale, 0);
   };
 
   const effectiveValue = duration <= 0 ? numericValue : displayValue;

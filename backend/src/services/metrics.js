@@ -108,6 +108,12 @@ function startQueueRefresh(intervalMs = 15000) {
   if (refreshInterval.unref) refreshInterval.unref();
 }
 
+function stopQueueRefresh() {
+  if (!refreshInterval) return;
+  clearInterval(refreshInterval);
+  refreshInterval = null;
+}
+
 function countRequest(req, res) {
   const route = req.route?.path || req.path || "unknown";
   httpRequestsTotal.inc({
@@ -140,6 +146,7 @@ module.exports = {
   countRequest,
   countDonation,
   startQueueRefresh,
+  stopQueueRefresh,
   httpRequestsTotal,
   httpErrorsTotal,
   donationsTotal,
