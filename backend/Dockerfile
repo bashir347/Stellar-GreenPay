@@ -14,6 +14,27 @@ USER greenpay
 
 CMD ["npm", "test"]
 
+# Dev stage — full deps (incl. nodemon) for docker-compose dev hot reload.
+# Not the default target: deploys still build the final "runner" stage.
+FROM node:22-alpine AS dev
+
+RUN addgroup -S greenpay && adduser -S greenpay -G greenpay
+
+WORKDIR /app
+
+ENV NODE_ENV development
+
+COPY --chown=greenpay:greenpay package*.json ./
+RUN npm ci && chown -R greenpay:greenpay /app/node_modules
+
+COPY --chown=greenpay:greenpay . .
+
+EXPOSE 4000
+
+USER greenpay
+
+CMD ["npm", "run", "dev:docker"]
+
 # 1. Builder Stage
 FROM node:22-alpine AS builder
 
